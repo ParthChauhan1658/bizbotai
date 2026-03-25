@@ -1,0 +1,25 @@
+{
+  "name": "@bizbot/database",
+  "version": "0.0.1",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.39.1",
+    "@neondatabase/serverless": "^0.10.4",
+    "pgvector": "^0.2.0"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.30.1",
+    "typescript": "^5.7.3",
+    "@types/node": "^22.10.5"
+  }
+}

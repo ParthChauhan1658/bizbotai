@@ -1,0 +1,28 @@
+{
+  "name": "@bizbot/analytics-worker",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "ioredis": "^5.4.1",
+    "bullmq": "^5.34.8",
+    "zod": "^3.24.1",
+    "@sentry/node": "^8.48.0",
+    "@opentelemetry/sdk-node": "^0.213.0",
+    "@bizbot/database": "workspace:*",
+    "@bizbot/events": "workspace:*",
+    "@bizbot/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "vitest": "^2.1.8"
+  }
+}

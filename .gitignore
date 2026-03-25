@@ -1,0 +1,57 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Environment variables - NEVER COMMIT
+.env
+.env.local
+.env.*.local
+.env.production
+
+# Build outputs
+dist
+build
+.next
+out
+.turbo
+
+# Test coverage
+coverage
+playwright-report
+test-results
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Docker
+.docker
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea
+
+# Terraform
+infrastructure/terraform/.terraform
+infrastructure/terraform/*.tfstate
+infrastructure/terraform/*.tfstate.backup
+infrastructure/terraform/.terraform.lock.hcl
+infrastructure/terraform/environments/*.tfvars
+
+# Misc
+*.tsbuildinfo
+.cache
+
+#claude
+.claude
+
+linkedin-posts
+diagrams

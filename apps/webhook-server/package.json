@@ -1,0 +1,33 @@
+{
+  "name": "@bizbot/webhook-server",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "hono": "^4.6.20",
+    "@hono/node-server": "^1.13.7",
+    "ioredis": "^5.4.1",
+    "zod": "^3.24.1",
+    "@sentry/node": "^8.48.0",
+    "@opentelemetry/sdk-node": "^0.213.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.71.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.213.0",
+    "@bizbot/database": "workspace:*",
+    "@bizbot/events": "workspace:*",
+    "@bizbot/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "vitest": "^2.1.8",
+    "eslint": "^9.18.0"
+  }
+}
