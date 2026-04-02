@@ -1,8 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { eq, and } from 'drizzle-orm'
-import { db, businesses, customers, conversations, messages, knowledgeBase } from '@bizbot/database'
+import { eq } from 'drizzle-orm'
+import { db, businesses, customers, conversations, messages } from '@bizbot/database'
 import { EventProducer } from '@bizbot/events'
-import { isWithinBusinessHours, PLAN_LIMITS } from '@bizbot/shared'
+import { isWithinBusinessHours } from '@bizbot/shared'
 import { buildContext } from './context-builder'
 import { routeModel } from './model-router'
 import { BIZBOT_TOOLS } from './tools'
@@ -49,8 +49,7 @@ export async function processMessage(event: MessageReceivedEvent): Promise<void>
     }
 
     // 4. Check message limit
-    const planKey = business.plan as keyof typeof PLAN_LIMITS
-    const limit = PLAN_LIMITS[planKey]?.messages ?? 200
+    const limit = business.monthlyMessageLimit ?? 200
     if (business.messagesUsedThisMonth >= limit) {
       console.warn(`Business ${businessId} exceeded message limit`)
       await sendReply(
@@ -210,6 +209,29 @@ async function runAgentLoop(opts: {
   return { replyText: '', tokensUsed: totalTokens, toolsUsed }
 }
 
+// ─── MCP server base URLs (from env or defaults for local dev) ────────────
+const MCP_URLS = {
+  kb:      process.env['MCP_KB_URL']      ?? 'http://localhost:4001',
+  order:   process.env['MCP_ORDER_URL']   ?? 'http://localhost:4002',
+  booking: process.env['MCP_BOOKING_URL'] ?? 'http://localhost:4003',
+  payment: process.env['MCP_PAYMENT_URL'] ?? 'http://localhost:4004',
+  crm:     process.env['MCP_CRM_URL']     ?? 'http://localhost:4005',
+}
+
+// Call an MCP microservice tool via HTTP POST
+async function callMcpTool(baseUrl: string, toolName: string, input: Record<string, unknown>): Promise<unknown> {
+  const res = await fetch(`${baseUrl}/tools/${toolName}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  const data = await res.json() as { success?: boolean; result?: unknown; error?: string }
+  if (!res.ok || data.error) {
+    throw new Error(data.error ?? `MCP tool ${toolName} returned ${res.status}`)
+  }
+  return data.result ?? data
+}
+
 // ─── Tool execution ───────────────────────────────────────────
 async function executeToolCall(
   toolName: string,
@@ -224,66 +246,77 @@ async function executeToolCall(
 ): Promise<unknown> {
   console.log(`Tool call: ${toolName}`, input)
 
-  switch (toolName) {
-    case 'search_knowledge_base': {
-      return searchKB(ctx.businessId, input['query'] as string)
-    }
-
-    case 'escalate_to_human': {
-      await db
-        .update(conversations)
-        .set({
-          status: 'handed_off',
-          handoffReason: input['reason'] as string,
-          handedOffAt: new Date(),
-        })
-        .where(eq(conversations.id, ctx.conversationId))
-
-      await ctx.producer.conversationHandoff({
-        businessId: ctx.businessId,
-        customerId: ctx.customerId,
-        conversationId: ctx.conversationId,
-        reason: input['reason'] as string,
-        timestamp: Date.now(),
-      })
-
-      return { success: true, message: 'Conversation handed off to human agent.' }
-    }
-
-    // Week 2: order, booking, payment tool calls will be handled by MCP servers
-    case 'create_order':
-    case 'check_availability':
-    case 'create_appointment':
-    case 'create_payment_link':
-      return { success: false, message: 'This feature is coming soon. Please contact us directly.' }
-
-    default:
-      return { success: false, message: `Unknown tool: ${toolName}` }
+  // Inject server-side context that Claude doesn't know about
+  const ctxInput = {
+    ...input,
+    businessId: ctx.businessId,
+    customerId: ctx.customerId,
+    conversationId: ctx.conversationId,
   }
-}
 
-// ─── KB search (inline for tool call response) ────────────────
-async function searchKB(businessId: string, query: string): Promise<{ results: string[] }> {
-  const allDocs = await db
-    .select({ content: knowledgeBase.content, title: knowledgeBase.title })
-    .from(knowledgeBase)
-    .where(and(eq(knowledgeBase.businessId, businessId), eq(knowledgeBase.isActive, true)))
-    .limit(20)
+  try {
+    switch (toolName) {
+      // ── Knowledge Base ──────────────────────────────────────
+      case 'search_knowledge_base':
+        return callMcpTool(MCP_URLS.kb, 'search_knowledge_base', ctxInput)
 
-  if (!allDocs.length) return { results: [] }
+      // ── Menu / Orders ───────────────────────────────────────
+      case 'list_menu':
+        return callMcpTool(MCP_URLS.order, 'list_menu', ctxInput)
 
-  const queryWords = query.toLowerCase().split(/\s+/)
-  const scored = allDocs
-    .map((doc) => {
-      const text = (doc.title + ' ' + doc.content).toLowerCase()
-      const score = queryWords.filter((w) => text.includes(w)).length
-      return { content: doc.content, score }
-    })
-    .filter((d) => d.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3)
+      case 'create_order':
+        return callMcpTool(MCP_URLS.order, 'create_order', ctxInput)
 
-  return { results: scored.map((d) => d.content) }
+      case 'get_order':
+        return callMcpTool(MCP_URLS.order, 'get_order', ctxInput)
+
+      // ── Booking ─────────────────────────────────────────────
+      case 'list_services':
+        return callMcpTool(MCP_URLS.booking, 'list_services', ctxInput)
+
+      case 'check_availability':
+        return callMcpTool(MCP_URLS.booking, 'check_availability', ctxInput)
+
+      case 'create_appointment':
+        return callMcpTool(MCP_URLS.booking, 'create_appointment', ctxInput)
+
+      // ── Payments ────────────────────────────────────────────
+      case 'create_payment_link':
+        return callMcpTool(MCP_URLS.payment, 'create_payment_link', ctxInput)
+
+      case 'check_payment_status':
+        return callMcpTool(MCP_URLS.payment, 'check_payment_status', ctxInput)
+
+      // ── Escalation (handled inline — needs DB + event bus) ──
+      case 'escalate_to_human': {
+        await db
+          .update(conversations)
+          .set({
+            status: 'handed_off',
+            handoffReason: input['reason'] as string,
+            handedOffAt: new Date(),
+          })
+          .where(eq(conversations.id, ctx.conversationId))
+
+        await ctx.producer.conversationHandoff({
+          businessId: ctx.businessId,
+          customerId: ctx.customerId,
+          conversationId: ctx.conversationId,
+          reason: input['reason'] as string,
+          timestamp: Date.now(),
+        })
+
+        return { success: true, message: 'Conversation handed off to a human agent. They will respond shortly.' }
+      }
+
+      default:
+        return { success: false, message: `Unknown tool: ${toolName}` }
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error(`Tool ${toolName} failed:`, message)
+    return { success: false, error: message }
+  }
 }
 
 // ─── Send reply helper ────────────────────────────────────────

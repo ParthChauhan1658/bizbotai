@@ -3,21 +3,23 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch --env-file=../../.env src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "node --env-file=../../.env dist/index.js",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.4.1",
-    "razorpay": "^2.9.5",
-    "zod": "^3.24.1",
     "@bizbot/database": "workspace:*",
-    "@bizbot/shared": "workspace:*"
+    "@bizbot/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.4.1",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.39.3",
+    "razorpay": "^2.9.5",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
-    "typescript": "^5.7.3",
     "@types/node": "^22.10.5",
-    "tsx": "^4.19.2"
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
   }
 }

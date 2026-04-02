@@ -15,6 +15,8 @@ services:
     networks:
       - bizbot-network
     restart: unless-stopped
+    profiles:
+      - prod
 
   # ─── Data Services ───────────────────────────────────────────
   postgres:
@@ -82,11 +84,17 @@ services:
     ports:
       - "4317:4317"
       - "4318:4318"
+      - "8889:8889"
     volumes:
       - ./otel/otel-collector-config.yml:/etc/otelcol-contrib/config.yaml:ro
     networks:
       - bizbot-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:13133/"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
 
   prometheus:
     image: prom/prometheus:latest
@@ -163,22 +171,94 @@ services:
 
   # ─── App Placeholders (run via pnpm dev outside Docker for HMR) ──
   web:
-    image: node:20-alpine
-    container_name: bizbot-web-placeholder
-    working_dir: /app
-    command: echo "Run 'pnpm dev --filter=@bizbot/web' locally for hot reload"
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+    container_name: bizbot-web
+    env_file:
+      - ../../.env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
     networks:
       - bizbot-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
     profiles:
       - prod
 
   webhook-server:
-    image: node:20-alpine
-    container_name: bizbot-webhook-placeholder
-    working_dir: /app
-    command: echo "Run 'pnpm dev --filter=@bizbot/webhook-server' locally"
+    build:
+      context: ../..
+      dockerfile: apps/webhook-server/Dockerfile
+    container_name: bizbot-webhook-server
+    env_file:
+      - ../../.env
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - bizbot-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - prod
+
+  ai-worker:
+    build:
+      context: ../..
+      dockerfile: apps/ai-worker/Dockerfile
+    container_name: bizbot-ai-worker
+    env_file:
+      - ../../.env
+    environment:
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - bizbot-network
+    restart: unless-stopped
+    profiles:
+      - prod
+
+  notification-worker:
+    build:
+      context: ../..
+      dockerfile: apps/notification-worker/Dockerfile
+    container_name: bizbot-notification-worker
+    env_file:
+      - ../../.env
+    environment:
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - bizbot-network
+    restart: unless-stopped
     profiles:
       - prod
 

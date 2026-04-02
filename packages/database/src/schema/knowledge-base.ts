@@ -29,8 +29,8 @@ export const knowledgeBase = pgTable(
     content: text('content').notNull(), // raw text content
     contentType: varchar('content_type', { length: 20 }).notNull(), // faq | menu | catalog | policy | custom | system
 
-    // Vector embedding for semantic search (1536 dims for text-embedding-3-small)
-    embedding: vector('embedding', { dimensions: 1536 }),
+    // Vector embedding for semantic search (512 dims for voyage-3-lite)
+    embedding: vector('embedding', { dimensions: 512 }),
 
     // Source
     sourceUrl: text('source_url'), // if uploaded from URL

@@ -2,13 +2,13 @@ import NextAuth from 'next-auth'
 import Google from 'next-auth/providers/google'
 import Resend from 'next-auth/providers/resend'
 import { DrizzleAdapter } from '@auth/drizzle-adapter'
-import { db, users, accounts, sessions, verificationTokens, businesses } from '@bizbot/database'
+import { db, users, accounts, sessions, verificationTokens } from '@bizbot/database'
 import { eq } from 'drizzle-orm'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: DrizzleAdapter(db, {
     usersTable: users,
-    accountsTable: accounts,
+    accountsTable: accounts as any,
     sessionsTable: sessions,
     verificationTokensTable: verificationTokens,
   }),
@@ -29,9 +29,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     verifyRequest: '/verify-email',
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
+      // On initial sign-in, store the userId
       if (user?.id) {
-        // Fetch user with business info
+        token['userId'] = user.id
+      }
+
+      // Always refresh role + businessId from DB so changes
+      // (e.g. onboarding creating a business) are picked up
+      // without requiring a re-login.
+      const userId = (token['userId'] as string) ?? user?.id
+      if (userId) {
         const [dbUser] = await db
           .select({
             id: users.id,
@@ -39,7 +47,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             businessId: users.businessId,
           })
           .from(users)
-          .where(eq(users.id, user.id))
+          .where(eq(users.id, userId))
           .limit(1)
 
         if (dbUser) {

@@ -1,3 +1,4 @@
+export { generateEmbedding, generateEmbeddingBatch, EMBEDDING_DIMS } from './embeddings'
 export { buildBasePrompt } from './templates/base'
 export { buildRestaurantPrompt } from './templates/restaurant'
 export { buildClinicPrompt } from './templates/clinic'

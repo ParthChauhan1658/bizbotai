@@ -8,6 +8,9 @@
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0"
+  },
   "devDependencies": {
     "typescript": "^5.7.3",
     "@types/node": "^22.10.5"

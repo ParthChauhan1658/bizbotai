@@ -4,6 +4,7 @@ import { Hono } from 'hono'
 import { logger } from 'hono/logger'
 import { secureHeaders } from 'hono/secure-headers'
 import { whatsappRouter } from './routes/whatsapp'
+import { razorpayRouter } from './routes/razorpay'
 import { healthRouter } from './routes/health'
 
 const app = new Hono()
@@ -14,6 +15,7 @@ app.use('*', secureHeaders())
 
 // ─── Routes ───────────────────────────────────────────────────
 app.route('/api', whatsappRouter)
+app.route('/api', razorpayRouter)
 app.route('/', healthRouter)
 
 // ─── 404 fallback ─────────────────────────────────────────────

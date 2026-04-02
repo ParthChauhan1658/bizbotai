@@ -11,8 +11,10 @@
   "dependencies": {
     "@trpc/server": "^11.0.0",
     "zod": "^3.24.1",
+    "@bizbot/ai-prompts": "workspace:*",
     "@bizbot/database": "workspace:*",
-    "@bizbot/shared": "workspace:*"
+    "@bizbot/shared": "workspace:*",
+    "drizzle-orm": "^0.39.1"
   },
   "devDependencies": {
     "typescript": "^5.7.3",

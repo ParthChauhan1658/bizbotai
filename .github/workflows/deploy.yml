@@ -1,0 +1,75 @@
+name: CI and Deploy
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Lint, Typecheck, Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+  build-images:
+    name: Build Docker Images
+    needs: validate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: web
+            dockerfile: apps/web/Dockerfile
+          - service: webhook-server
+            dockerfile: apps/webhook-server/Dockerfile
+          - service: ai-worker
+            dockerfile: apps/ai-worker/Dockerfile
+          - service: notification-worker
+            dockerfile: apps/notification-worker/Dockerfile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -f ${{ matrix.dockerfile }} -t bizbot/${{ matrix.service }}:${{ github.sha }} .
+
+  deploy:
+    name: Trigger Deployment Hook
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: build-images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger deploy webhook (optional)
+        if: ${{ secrets.DEPLOY_WEBHOOK_URL != '' }}
+        run: |
+          curl -X POST "${{ secrets.DEPLOY_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{"sha":"${{ github.sha }}","repo":"${{ github.repository }}"}'

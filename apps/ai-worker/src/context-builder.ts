@@ -1,8 +1,8 @@
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, sql } from 'drizzle-orm'
 import {
   db, businesses, customers, messages, knowledgeBase
 } from '@bizbot/database'
-import { getSystemPrompt } from '@bizbot/ai-prompts'
+import { getSystemPrompt, generateEmbedding } from '@bizbot/ai-prompts'
 
 export interface AIContext {
   systemPrompt: string
@@ -97,8 +97,38 @@ export async function buildContext(
   }
 }
 
-// Simple keyword search (we'll upgrade to vector search in Week 2)
+// Vector search using pgvector cosine similarity
 async function searchKnowledgeBase(businessId: string, query: string) {
+  if (!query.trim()) return []
+
+  try {
+    // Generate embedding for the query
+    const queryEmbedding = await generateEmbedding(query)
+    const vectorStr = `[${queryEmbedding.join(',')}]`
+
+    // Cosine similarity search via pgvector — returns top 3 most relevant docs
+    const results = await db
+      .select({
+        content: knowledgeBase.content,
+        title: knowledgeBase.title,
+        similarity: sql<number>`1 - (${knowledgeBase.embedding} <=> ${vectorStr}::vector)`,
+      })
+      .from(knowledgeBase)
+      .where(and(eq(knowledgeBase.businessId, businessId), eq(knowledgeBase.isActive, true)))
+      .orderBy(sql`${knowledgeBase.embedding} <=> ${vectorStr}::vector`)
+      .limit(3)
+
+    // Only return results with similarity above threshold (0.3 = relevant)
+    return results.filter((r) => r.similarity > 0.3)
+  } catch (err) {
+    // If embedding fails, fall back to keyword search
+    console.warn('Vector search failed, falling back to keyword search:', err)
+    return keywordSearch(businessId, query)
+  }
+}
+
+// Fallback keyword search
+async function keywordSearch(businessId: string, query: string) {
   const allDocs = await db
     .select({ content: knowledgeBase.content, title: knowledgeBase.title })
     .from(knowledgeBase)
@@ -107,15 +137,13 @@ async function searchKnowledgeBase(businessId: string, query: string) {
 
   if (!allDocs.length) return []
 
-  // Simple keyword matching until we set up pgvector embeddings
   const queryWords = query.toLowerCase().split(/\s+/)
-  const scored = allDocs.map((doc) => {
-    const text = (doc.title + ' ' + doc.content).toLowerCase()
-    const score = queryWords.filter((w) => text.includes(w)).length
-    return { ...doc, score }
-  })
-
-  return scored
+  return allDocs
+    .map((doc) => {
+      const text = (doc.title + ' ' + doc.content).toLowerCase()
+      const score = queryWords.filter((w) => text.includes(w)).length
+      return { ...doc, score, similarity: score / queryWords.length }
+    })
     .filter((d) => d.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 3)
