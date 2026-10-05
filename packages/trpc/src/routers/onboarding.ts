@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 import { businesses, users, knowledgeBase } from '@bizbot/database'
-import { createTRPCRouter, protectedProcedure, businessProcedure } from '../trpc'
+import { createTRPCRouter, protectedProcedure } from '../trpc'
 import { TRPCError } from '@trpc/server'
 import { randomBytes } from 'crypto'
 

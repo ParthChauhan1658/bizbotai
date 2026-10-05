@@ -17,7 +17,6 @@ export interface ParsedMessage {
   customerName?: string
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function parseWhatsAppWebhook(body: any): ParsedMessage[] {
   const messages: ParsedMessage[] = []
 
@@ -34,17 +33,19 @@ export function parseWhatsAppWebhook(body: any): ParsedMessage[] {
   // Handle incoming messages
   for (const message of value.messages ?? []) {
     const customerName = contacts.find(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (c: any) => c.wa_id === message.from
     )?.profile?.name as string | undefined
 
-    const base = {
+    const base: Pick<
+      ParsedMessage,
+      'waMessageId' | 'from' | 'phoneNumberId' | 'businessAccountId' | 'timestamp'
+    > & { customerName?: string } = {
       waMessageId: message.id as string,
       from: message.from as string,
       phoneNumberId,
       businessAccountId,
       timestamp: parseInt(message.timestamp as string) * 1000,
-      customerName,
+      ...(customerName !== undefined ? { customerName } : {}),
     }
 
     if (message.type === 'text') {

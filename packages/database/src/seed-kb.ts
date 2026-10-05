@@ -444,9 +444,7 @@ async function seedKB() {
   console.log(`Found business: ${business.id}`)
 
   // Clear existing KB items
-  const { knowledgeBase: kb } = await import('./index')
-  const { eq: drizzleEq } = await import('drizzle-orm')
-  await db.delete(kb).where(drizzleEq(kb.businessId, business.id))
+  await db.delete(knowledgeBase).where(eq(knowledgeBase.businessId, business.id))
   console.log('Cleared existing KB items')
 
   console.log(`Generating embeddings for ${KB_ITEMS.length} KB items...`)
@@ -458,7 +456,7 @@ async function seedKB() {
     const item = KB_ITEMS[i]!
     const embedding = embeddings[i]!
 
-    await db.insert(kb).values({
+    await db.insert(knowledgeBase).values({
       businessId: business.id,
       title: item.title,
       content: item.content,

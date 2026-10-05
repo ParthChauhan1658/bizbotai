@@ -1,6 +1,10 @@
 import { createHmac } from 'crypto'
 import type { Context, Next } from 'hono'
 
+export type AppVariables = {
+  rawBody: string
+}
+
 export async function verifyWhatsAppSignature(c: Context, next: Next): Promise<void> {
   const signature = c.req.header('x-hub-signature-256')
   const appSecret = process.env['WA_APP_SECRET']

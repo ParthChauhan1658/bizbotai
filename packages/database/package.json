@@ -16,7 +16,8 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.39.1",
-    "@neondatabase/serverless": "^0.10.4"
+    "@neondatabase/serverless": "^0.10.4",
+    "@bizbot/ai-prompts": "workspace:*"
   },
   "devDependencies": {
     "drizzle-kit": "^0.30.1",

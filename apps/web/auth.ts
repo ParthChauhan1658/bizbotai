@@ -29,7 +29,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     verifyRequest: '/verify-email',
   },
   callbacks: {
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user }) {
       // On initial sign-in, store the userId
       if (user?.id) {
         token['userId'] = user.id

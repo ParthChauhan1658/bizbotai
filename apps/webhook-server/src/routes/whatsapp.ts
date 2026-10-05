@@ -2,12 +2,12 @@ import { Hono } from 'hono'
 import { eq, and } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
 import { db, businesses, customers, conversations, messages } from '@bizbot/database'
-import { EventProducer, EVENTS } from '@bizbot/events'
+import { EventProducer } from '@bizbot/events'
 import { detectLanguage } from '@bizbot/shared'
 import { parseWhatsAppWebhook } from '../parsers/whatsapp'
-import { verifyWhatsAppSignature } from '../middleware/signature'
+import { verifyWhatsAppSignature, type AppVariables } from '../middleware/signature'
 
-const router = new Hono()
+const router = new Hono<{ Variables: AppVariables }>()
 const producer = new EventProducer(process.env['REDIS_URL']!)
 
 // ─── Webhook Verification (GET) ───────────────────────────────
