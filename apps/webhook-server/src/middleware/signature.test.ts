@@ -99,6 +99,7 @@ describe('verifyWhatsAppSignature', () => {
   it('rejects a tampered body with 401', async () => {
     const res = await post({ 'x-hub-signature-256': sign(BODY) }, BODY.replace('entry', 'entrY'))
     expect(res.status).toBe(401)
+    expect(lastReason()).toBe('mismatch')
     expect(downstream).not.toHaveBeenCalled()
   })
 
@@ -106,14 +107,29 @@ describe('verifyWhatsAppSignature', () => {
     delete process.env['WA_APP_SECRET']
     const res = await post({ 'x-hub-signature-256': sign(BODY) })
     expect(res.status).toBe(401)
+    expect(lastReason()).toBe('secret_not_configured')
     expect(downstream).not.toHaveBeenCalled()
   })
 
-  it('does not leak the secret or signature in the response body', async () => {
-    const sig = sign(BODY, 'wrong-secret')
-    const res = await post({ 'x-hub-signature-256': sig })
-    const text = await res.text()
-    expect(text).not.toContain(SECRET)
-    expect(text).not.toContain(sig)
+  it('does not disclose the secret, signature or body in logs or the response', async () => {
+    const secret = 'DISTINCT-SECRET-q8Zr41'
+    const signature = `sha256=${'deadbeef'.repeat(8)}` // well-formed but wrong -> mismatch
+    const body = '{"marker":"PAYLOAD-MARKER-7731","phone":"919876543210"}'
+    process.env['WA_APP_SECRET'] = secret
+
+    const res = await post({ 'x-hub-signature-256': signature }, body)
+    expect(res.status).toBe(401)
+    expect(lastReason()).toBe('mismatch')
+    expect(warnSpy).toHaveBeenCalled() // guard against a vacuous pass
+
+    const logged = JSON.stringify(warnSpy.mock.calls) // every argument of every call
+    const responseText = await res.text()
+    for (const output of [logged, responseText]) {
+      expect(output).not.toContain(secret)
+      expect(output).not.toContain('deadbeef')
+      expect(output).not.toContain(body)
+      expect(output).not.toContain('PAYLOAD-MARKER-7731')
+      expect(output).not.toContain('919876543210')
+    }
   })
 })
