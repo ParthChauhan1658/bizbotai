@@ -90,7 +90,7 @@ describe('verifyWhatsAppSignature', () => {
   })
 
   it('verifies the HMAC over raw bytes when the body starts with a BOM', async () => {
-    const bomBody = '﻿' + BODY
+    const bomBody = '\uFEFF' + BODY
     const res = await post({ 'x-hub-signature-256': sign(bomBody) }, bomBody)
     expect(res.status).toBe(200)
     expect(downstream).toHaveBeenCalledWith(BODY) // BOM stripped on decode, as before
